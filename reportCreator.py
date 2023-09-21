@@ -252,10 +252,16 @@ def addBackgroundColor(table,renameDict,ColorDict,tableStyle):
     return tableStyle
 
 def createPdf(folder_path):
+    
+    # Get the parent directory
+    parentDirectory = os.path.dirname(folder_path)
+    
     # name of the pdf file
-    pdf_file = "report.pdf"
+    pdfFile = "report.pdf"
+    outfilepath = os.path.join( parentDirectory, pdfFile )
+    
     # Create a PDF document
-    doc = BaseDocTemplate(pdf_file, pagesize=A4)
+    doc = BaseDocTemplate(outfilepath, pagesize=A4)
     elements = []
 
     with open(os.path.join(folder_path, "stils_celltypeTable.json"), 'r') as f:
