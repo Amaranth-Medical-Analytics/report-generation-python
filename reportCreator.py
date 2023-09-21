@@ -284,7 +284,7 @@ def createPdf(folder_path):
     sideDensityImage = os.path.join(folder_path,'size.png')
     vescularDensityImage = os.path.join(folder_path,'vesicularity.png')
     nucleoliDataImage = os.path.join(folder_path,'nucleoli.png')
-    hpfNucleoliImage = ""
+    hpfNucleoliImage = load_image_or_empty(os.path.join(folder_path,'hpf_npCE.png'))
 
     #Page 4 info
     tbImage = load_image_or_empty(os.path.join(folder_path,'tbImage.png'))
@@ -623,9 +623,10 @@ def createPdf(folder_path):
     # elements.append(Paragraph(text,styles))
     elements.append(tubuleTableContainer)
     elements.append(Spacer(1,20))
-    tbImageContainer = Image(tbImage, width=500, height=500,kind='proportional')
-    elements.append(tbImageContainer)
-    elements.append(Paragraph(tbImageText,tbImageTextStyles))
+    if(tbImage != ""):
+          tbImageContainer = Image(tbImage, width=500, height=500,kind='proportional')
+          elements.append(tbImageContainer)
+          elements.append(Paragraph(tbImageText,tbImageTextStyles))
     elements.append(PageBreak()) 
 
     stilTableHeader = [''] + list(stilTable[next(iter(stilTable))].keys())
