@@ -798,20 +798,20 @@ def createPdf(folder_path):
         footer.drawOn(canvas, 20, 10)
 
         pageNumber = str(canvas.getPageNumber())
-        # link_text = "Go to image viewer"
-        # link_url = caseInfo['link']
-        # link = Paragraph(
-        #     f'<a href="{link_url}">{link_text}</a>',
-        #     wordStyle
-        # )
+        
         link_text = "Go to image viewer"
         link = caseInfo['link']
-        # paragraph = Paragraph(f'<a href="{link}">{text}</a>', style)
-        # canvas.setFont('Times-Roman', 8)
+        
+        text = f'<link href="{link}"><u><font color="blue">{link_text}</font></u></link>'
+
+        paragraph = Paragraph(text, styles)
+        paragraph.wrap(doc.width, doc.bottomMargin)
+        canvas.setFont('Times-Roman',7)
         canvas.drawString(280,10,pageNumber)
+        canvas.setFont('Times-Roman',8)
         if canvas.getPageNumber() == 1:
             canvas.drawImage(qrCode, 530, 10, width=50, height=50,preserveAspectRatio=True,mask='auto')
-            
+            paragraph.drawOn(canvas,450,10)
         if canvas.getPageNumber() == 2:
             hpfText = '''*HPF area equivalent to diameter of 0.51mm'''
             hpfText1 = 'Score 1: up to 7' 
@@ -839,6 +839,4 @@ def createPdf(folder_path):
     doc.build(elements)
 
     print(f"PDF created: {pdf_file}")
-
-
 
