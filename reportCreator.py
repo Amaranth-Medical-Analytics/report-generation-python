@@ -11,14 +11,19 @@ from reportlab.pdfbase import pdfdoc
 from reportlab.lib.units import inch
 from reportlab.pdfbase import acroform
 from reportlab.platypus import Flowable
+from reportlab.lib.utils import ImageReader
 import datetime
 import json
+import base64
 import re
 import os
+import io
 
 #Main function is createPdf, takes a parameter that specifies the folder path of the files
 
 #Necessary constant Rename and Color code dictionary
+
+
 cellTypeRename = {
   'CE': "Tumor/epithelial cells",
   'TIL': "Tumor infiltrating lymphocytes",
@@ -144,6 +149,7 @@ def load_image_or_empty(image_path):
     else:
         return ""
 
+
 #convert the json to table Array
 def convertDictToArray(table, header,fontSize):
     
@@ -186,11 +192,20 @@ def getColumnWidthRowHeight(table,width,height):
     return [colWidths, rowHeights]
 
 
-def find_key_by_value(dictionary, target_value):
+def find_key_by_value(dictionary, targetValue):
     for key, value in dictionary.items():
-        if value == target_value:
+        if value == targetValue:
             return key
     return None  # Return None if the value is not found
+
+def getTextColor(background_color):
+    luminance = (0.299 * background_color.red + 0.587 * background_color.green + 0.114 * background_color.blue)
+    # Choose the text color based on the luminance
+    if luminance < 0.8:  # Adjust this threshold as needed
+        return colors.red
+    else:
+        return colors.red
+
 
 #Container for table and Image in page 1
 def page1TableContainer(image,table,height):
@@ -215,6 +230,11 @@ def page1TableContainer(image,table,height):
                     if key in segmentColorMap:
                         r, g, b = segmentColorMap[key]
                         backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
+                        textColorStyle = ParagraphStyle(
+                            name='updatedStyle',
+                            textColor= getTextColor(backgroundColor)
+                        )
+                        value = Paragraph(value.text,textColorStyle)
                         gridStyle.add('BACKGROUND', (column, row), (column, row),backgroundColor)
     
                 elif key is None:
@@ -251,15 +271,14 @@ def addBackgroundColor(table,renameDict,ColorDict,tableStyle):
                         tableStyle.add('BACKGROUND', (column, row), (column, row),backgroundColor)
     return tableStyle
 
+
 def createPdf(folder_path):
-    
+
     # Get the parent directory
     parentDirectory = os.path.dirname(folder_path)
-    
+    pdf_file = "report.pdf"
+    outfilepath = os.path.join( parentDirectory, pdf_file )
     # name of the pdf file
-    pdfFile = "report.pdf"
-    outfilepath = os.path.join( parentDirectory, pdfFile )
-    
     # Create a PDF document
     doc = BaseDocTemplate(outfilepath, pagesize=A4)
     elements = []
@@ -282,8 +301,10 @@ def createPdf(folder_path):
     with open(os.path.join(folder_path,"nucleoli_data.json"), 'r') as f:
         nucleoliData = json.load(f)
 
+    with open(os.path.join(folder_path,'caseInfo.json'),'r') as caseData:
+        caseInfo = json.load(caseData)
 
-    amaranth_logo = os.path.join(folder_path,'ama_logo.png')
+    amaranth_logo = os.path.join(r"C:\Users\joash\OneDrive\Desktop\moticPdf",'ama_logo.png')
     qrCode = os.path.join(folder_path,"qrCode.png")
 
     #Page 3 info
@@ -630,10 +651,10 @@ def createPdf(folder_path):
     elements.append(tubuleTableContainer)
     elements.append(Spacer(1,20))
     if(tbImage != ""):
-          tbImageContainer = Image(tbImage, width=500, height=500,kind='proportional')
-          elements.append(tbImageContainer)
-          elements.append(Paragraph(tbImageText,tbImageTextStyles))
-    elements.append(PageBreak()) 
+        tbImageContainer = Image(tbImage, width=500, height=500,kind='proportional')
+        elements.append(tbImageContainer)
+        elements.append(Paragraph(tbImageText,tbImageTextStyles))
+    elements.append(PageBreak())    
 
     stilTableHeader = [''] + list(stilTable[next(iter(stilTable))].keys())
     stilCellTableHeader = ['no. of cells per mm²']+list(stilCellTable[next(iter(stilCellTable))].keys())
@@ -708,6 +729,7 @@ def createPdf(folder_path):
 
     #Header and Footer
     def add_header(canvas, doc):
+
         # Create a table for patientDetails and set its style
         styles = getSampleStyleSheet()
         header1_style = ParagraphStyle(
@@ -719,20 +741,20 @@ def createPdf(folder_path):
     #     spaceAfter=12,           
         fontName='Times-Bold' 
     ) 
-        ID='H12123'
-        Age='NA'
-        Gender='NA'
-        ER='NA'
-        PR='NA'
-        Her2='NA'
-        Stage='NA'
-        PAM50='NA'
+        
+        ID=caseInfo['ID']
+        Age=caseInfo['Age']
+        Gender=caseInfo['Gender']
+        ER=caseInfo['ER']
+        PR=caseInfo['PR']
+        Her2=caseInfo['Her2']
+        Stage=caseInfo['Stage']
+        PAM50=caseInfo['PAM50']
 
         label_style = ParagraphStyle(
         name='LabelStyle',
-        fontSize=8,
+        fontSize=7,
         fontName='Times-Roman',
-
         )
         patientDetails = [
         [Paragraph(f'<b>ID</b>:{ID}',label_style), Paragraph(f'<b>Age</b>: {Age}',label_style), Paragraph(f'<b>Gender</b>: {Gender}',label_style)],
@@ -740,7 +762,7 @@ def createPdf(folder_path):
         ]
         pageTitles = ['Summary','Mitotis','Nuclear pleomorphism','Tubular/Acinar formation','Tumor infiltrating lymphocytes']
         pageTitle = pageTitles[canvas.getPageNumber() - 1]
-        col_widths = 300 / 5
+        col_widths = 400 / 5
         table = Table(patientDetails,colWidths=col_widths)
         table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'LEFT'),('FONTSIZE',(0,0),(-1,-1),8)])
                       )
@@ -776,10 +798,20 @@ def createPdf(folder_path):
         footer.drawOn(canvas, 20, 10)
 
         pageNumber = str(canvas.getPageNumber())
-        canvas.setFont('Times-Roman', 8)
+        # link_text = "Go to image viewer"
+        # link_url = caseInfo['link']
+        # link = Paragraph(
+        #     f'<a href="{link_url}">{link_text}</a>',
+        #     wordStyle
+        # )
+        link_text = "Go to image viewer"
+        link = caseInfo['link']
+        # paragraph = Paragraph(f'<a href="{link}">{text}</a>', style)
+        # canvas.setFont('Times-Roman', 8)
         canvas.drawString(280,10,pageNumber)
         if canvas.getPageNumber() == 1:
-            canvas.drawImage(qrCode, 530, 10, width=50, height=50,preserveAspectRatio=True,mask='auto')  # Adjust width and height as needed
+            canvas.drawImage(qrCode, 530, 10, width=50, height=50,preserveAspectRatio=True,mask='auto')
+            
         if canvas.getPageNumber() == 2:
             hpfText = '''*HPF area equivalent to diameter of 0.51mm'''
             hpfText1 = 'Score 1: up to 7' 
@@ -810,4 +842,3 @@ def createPdf(folder_path):
 
 
 
-# createPdf(r"C:\Users\joash\Downloads\report\report\\")
