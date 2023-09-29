@@ -212,7 +212,8 @@ def postReportStats(slideName, path, projectID, datasetID, config_file_path):
         else:
             caseInfo['PAM50'] = 'NotAvailable'
     else:
-        caseInfo['ID'] = slideName
+        caseInfo = {"ID": slideName}
+        #caseInfo['ID'] = slideName
         caseInfo['Gender'] = 'NotAvailable'
         caseInfo['Age'] = 'NotAvailable'
         caseInfo['ER'] = 'NotAvailable'
