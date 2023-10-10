@@ -939,4 +939,4 @@ def compress_pdf(path):
         ]
     )
 
-compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
+# compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
