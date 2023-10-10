@@ -12,18 +12,17 @@ from reportlab.lib.units import inch
 from reportlab.pdfbase import acroform
 from reportlab.platypus import Flowable
 from reportlab.lib.utils import ImageReader
+from reportlab.graphics.shapes import Drawing, Rect
 import datetime
 import json
-import base64
 import re
 import os
-import io
+import subprocess
+import shutil
 
 #Main function is createPdf, takes a parameter that specifies the folder path of the files
 
 #Necessary constant Rename and Color code dictionary
-
-
 cellTypeRename = {
   'CE': "Tumor/epithelial cells",
   'TIL': "Tumor infiltrating lymphocytes",
@@ -57,14 +56,7 @@ segmentColorMap = {
   "BR-D": (68, 78, 172),
 }
 
-segmentRename = {'SPA': "Space",
-  'CT': "Cellular Tumor",
-  'ST': "Stroma",
-  'FAT': "Fatty tissue",
-  'NE': "Necrosis",
-  'Other': "Other",
-  'Skin': "Skin",
-  "BR-D": "Normal/dysplastic breast",}
+
 
 nucleiColorMap= {
   'CE': (0, 255, 255),
@@ -79,19 +71,7 @@ nucleiColorMap= {
   'mimi': (0, 0, 0),
   'MIT': (247, 25, 226),
 }
-cellTypeRename = {
-  'CE': "Tumor/epithelial cells",
-  'TIL': "Tumor infiltrating lymphocytes",
-  'CEUK': "Unknown cell type",
-  'fib': "Fibroblasts",
-  'plasma': "Plasma cells",
-  'End': "Endothelial cells",
-  'nCE': "Normal cells",
-  'Mph': "Macrophages",
-  'Neu': "Neutrophils",
-  'mimi': "Mitotic mimic",
-  'MIT': "Mitotic cells",
-}
+
 stilColorMap = {
   "Stromal TILs": (70,110,108),
   "Peri-tumoral TILs": (233,238,59),
@@ -105,15 +85,41 @@ wordStyleBold = ParagraphStyle(
         fontName='Times-Bold',
         leading=6,
         fontSize= 7,
-        alignment=1,
     )
 wordStyle = ParagraphStyle(
         name='Normal',
         fontName='Times-Roman',
         leading=6,
         fontSize= 7,
-        alignment=1,
     )
+
+class InteractiveTextField(Flowable):
+    def __init__(self, text='',name='name',x=15,y=1):
+        Flowable.__init__(self)
+        self.name = name
+        self.text = text
+        self.boxsize = 8
+        self.x = x
+        self.y = y
+
+    def draw(self):
+        self.canv.saveState()
+        form = self.canv.acroForm
+        form.textfield(name=self.name,
+                            tooltip=self.text,
+                            value=self.text,
+                            width=50,
+                            height=10,
+                            fontSize=6,
+                            x=self.x,
+                            y=self.y,
+                            textColor=colors.black,
+                            fontName='Times-Roman',
+                            fillColor=colors.white,
+                            relative=True,
+                            )
+        self.canv.restoreState()
+        return
 
 #Creating choicebox in table 1,page 1
 class InteractiveChoiceBox(Flowable):
@@ -124,23 +130,38 @@ class InteractiveChoiceBox(Flowable):
 
     def draw(self):
         self.canv.saveState()
-        
         form = self.canv.acroForm
-        options = [('1','1'),('2','2'),('3','3')]
+        options = [('','None'),('1','1'),('2','2'),('3','3')]
         form.choice(name=self.text,
                             tooltip=self.text,
-                            value='1',
-                            width=82,
-                            height=18,
-                            x = -8,
-                            y=-12,
+                            value='None',
+                            width=50,
+                            height=10,
+                            x = 5,
+                            y=-10,
+                            fontSize=7,
+                            textColor=colors.black,
+                            fontName='Times-Roman',
+                            fillColor=colors.white,
                             relative=True,
                             forceBorder=True,
                             options=options)
-
         self.canv.restoreState()
         return
 
+class SquareFlowable(Flowable):
+    def __init__(self, size=5, color=colors.white):
+        self.size = size
+        self.color = color
+
+    def wrap(self, width, height):
+        return self.size, self.size
+
+    def draw(self):
+        self.canv.setFillColor(self.color)
+        self.canv.setStrokeColor(colors.black)
+        self.canv.setLineWidth(0.5)
+        self.canv.rect(0, 0, self.size, self.size, fill=True)
 
 #if image not found
 def load_image_or_empty(image_path):
@@ -152,7 +173,6 @@ def load_image_or_empty(image_path):
 
 #convert the json to table Array
 def convertDictToArray(table, header,fontSize):
-    
     wordStyle.whiteSpace = 'nowrap'
     wordStyle.fontSize = fontSize
     wordStyleBold.fontSize = fontSize
@@ -198,54 +218,78 @@ def find_key_by_value(dictionary, targetValue):
             return key
     return None  # Return None if the value is not found
 
-def getTextColor(background_color):
-    luminance = (0.299 * background_color.red + 0.587 * background_color.green + 0.114 * background_color.blue)
-    # Choose the text color based on the luminance
-    if luminance < 0.8:  # Adjust this threshold as needed
-        return colors.red
-    else:
-        return colors.red
+
+def addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,firstrenameDictionary,firstColorMap,secondRenameDictionary=None,secondColorMap=None,stilColorMap=None):
+    for row, values in enumerate(table):
+        for column, value in enumerate(values):
+            if type(value) is not Table:
+                key = find_key_by_value(firstrenameDictionary, value.text)
+                if key is not None:
+                    if key in firstColorMap:
+                        r, g, b = firstColorMap[key]
+                        backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
+                        
+                        data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=colWidthTableCell,rowHeights=rowHeightTableCell)
+                        
+                        cellStyle = TableStyle([
+                            ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('ALIGN', (1, 1), (1, 1), 'LEFT'),  
+                            ("ALIGN",(0,0),(0,0),'CENTER'),
+                        ])
+                        data.setStyle(cellStyle)
+                        table[row][column] = data
+
+                elif key is None and secondRenameDictionary != None:
+                    newKey = find_key_by_value(secondRenameDictionary,value.text)
+                    if newKey is not None:
+                        if newKey in secondColorMap:
+                            r, g, b = secondColorMap[newKey]
+                            backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
+                            data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=colWidthTableCell,rowHeights=rowHeightTableCell)
+                            cellStyle =TableStyle([
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('ALIGN', (-1, -1), (-1, -1), 'LEFT'),
+                            ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
+                            ("ALIGN",(0,0),(0,0),'CENTER'),
+                            ])
+                            data.setStyle(cellStyle)
+                            table[row][column] = data
+                elif stilColorMap != None:
+                    if stilColorMap.get(value.text + ' TILs') != None:
+                        r, g, b = stilColorMap[value.text + ' TILs']
+                        backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
+                        data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=[10,55],rowHeights=[12])
+                        
+                        cellStyle = TableStyle([
+                            ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
+                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('ALIGN', (-1, -1), (-1, -1), 'LEFT'),
+                            ("ALIGN",(0,0),(0,0),'CENTER'),
+    
+                        ])
+                        data.setStyle(cellStyle)
+                        table[row][column] = data
+    return table
 
 
 #Container for table and Image in page 1
 def page1TableContainer(image,table,height):
     width = 350
     colWidth,rowHeights = getColumnWidthRowHeight(table,width,height)
-    
-    newTable = Table(table,colWidths=colWidth,rowHeights=rowHeights)
+    colWidth80 = colWidth[0]*0.90
+    colWidthTableCell = [colWidth80*0.10, colWidth80*0.95]
+    rowHeightTableCell = rowHeights[0]*0.80
 
     gridStyle =  (TableStyle([
-    ('ALIGN', (0, 0), (-1, -1), 'CENTER'), # Make the first column bold
+    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
     ('FONTNAME', (-1, 1), (-1, -1), 'Times-Roman'),
     ('WORDWRAP', (0, 0), (-1, -1), True),
     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ('GRID', (0, 0), (-1, -1), 1, colors.black),
 ]))
-    
-    for row, values in enumerate(table):
-        for column, value in enumerate(values):
-            if type(value) is not Table:
-                key = find_key_by_value(segmentRename, value.text)
-                if key is not None:
-                    if key in segmentColorMap:
-                        r, g, b = segmentColorMap[key]
-                        backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                        textColorStyle = ParagraphStyle(
-                            name='updatedStyle',
-                            textColor= getTextColor(backgroundColor)
-                        )
-                        value = Paragraph(value.text,textColorStyle)
-                        gridStyle.add('BACKGROUND', (column, row), (column, row),backgroundColor)
-    
-                elif key is None:
-                    newKey = find_key_by_value(cellTypeRename,value.text)
-                    if newKey is not None:
-                        if newKey in nucleiColorMap:
-                            r, g, b = nucleiColorMap[newKey]
-                            backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                            
-                            gridStyle.add('BACKGROUND', (column, row), (column, row),backgroundColor )
-    
+    restructuredTable = addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,segmentRename,segmentColorMap,cellTypeRename,nucleiColorMap)
+    newTable = Table(restructuredTable,colWidths=colWidth,rowHeights=rowHeights)
     newTable.setStyle(gridStyle)
     
     tableAndImage = [[Image(image, width=150, height=100,kind='proportional'),newTable]]
@@ -253,30 +297,17 @@ def page1TableContainer(image,table,height):
     
     TableContainer.setStyle(TableStyle([
     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), #yhaper
     ]))
     
     return TableContainer
-
-#backgraoundColor 
-def addBackgroundColor(table,renameDict,ColorDict,tableStyle):
-    for row, values in enumerate(table):
-        for column, value in enumerate(values):
-            if type(value) is not Table:
-                key = find_key_by_value(renameDict, value.text)
-                if key is not None:
-                    if key in ColorDict:
-                        r, g, b = ColorDict[key]
-                        backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                        tableStyle.add('BACKGROUND', (column, row), (column, row),backgroundColor)
-    return tableStyle
-
 
 def createPdf(folder_path):
 
     # Get the parent directory
     parentDirectory = os.path.dirname(folder_path)
     pdf_file = "report.pdf"
+    
     outfilepath = os.path.join( parentDirectory, pdf_file )
     # name of the pdf file
     # Create a PDF document
@@ -301,7 +332,7 @@ def createPdf(folder_path):
     with open(os.path.join(folder_path,"nucleoli_data.json"), 'r') as f:
         nucleoliData = json.load(f)
 
-    with open(os.path.join(folder_path,'caseInfo.json'),'r') as caseData:
+    with open(os.path.join(folder_path,'1085b10-pt4_caseInfo.json'),'r') as caseData:
         caseInfo = json.load(caseData)
 
     amaranth_logo = os.path.join(r"C:\Users\joash\OneDrive\Desktop\moticPdf",'ama_logo.png')
@@ -334,7 +365,8 @@ def createPdf(folder_path):
 
     #Page 5 info
     segment_overlay_nuclei_heatmap = os.path.join(folder_path,"segment_overlay_nuclei_heatmap.png") 
-    thumbnail = os.path.join(folder_path,"thumbnail.png")  
+    thumbnail = os.path.join(folder_path,"thumbnail.png")
+    hpfThumbnail = os.path.join(folder_path,'hpfThumbnail.png')  
     stils = os.path.join(folder_path,"stils.png")
     
     #Remove empty key
@@ -343,7 +375,7 @@ def createPdf(folder_path):
         
     histologicalScoreTable = convertDictToArray(histologicalScoreData,[['','AI score','AI translated score','Pathologist score']],6)
     segmentAreaTable = []
-    header = [Paragraph(i,wordStyleBold) for i in ['Segment','area in mm2','%area']]
+    header = [Paragraph(i,wordStyleBold) for i in ['Segment','area in mm²','%area']]
     segmentAreaTable.append(header)
     for key,value in segmentAreaData.items():
         segmentKey = ''
@@ -363,7 +395,7 @@ def createPdf(folder_path):
         # Extract the values for 'Segment', 'Total count', 'per mm2', and 'per 1000 epithelial cells'
         cellTypeKey = values['Celltype']
         if cellTypeKey in cellTypeRename:
-            cellTypeKey = Paragraph(cellTypeRename[cellTypeKey],wordStyle)
+            cellTypeKey = Paragraph(cellTypeRename[cellTypeKey],wordStyleBold)
         total_count = Paragraph("{:,}".format(values['Total count']),wordStyle)
         per_mm2 = Paragraph(str(round(values['per mm2'],2)),wordStyle)
         per_1000_epithelial_cells = Paragraph(str(values['per 1000 epithelial cells']),wordStyle)
@@ -387,10 +419,18 @@ def createPdf(folder_path):
         for i in cellTypePercentHeader:
             extracted_data.append(str(values[i])+'%')
         cellTypePercentTable.append(extracted_data)
-
+    
+        
     cellTypePercentTable[0] = [segmentRename.get(header, header) for header in cellTypePercentTable[0] if header != ' Cell type']
-    cellTypePercentTable = [[Paragraph(j, wordStyleBold) if i == 0 else Paragraph(j, wordStyle) for i, j in enumerate(row)] for row in cellTypePercentTable]
-
+    for index,i in enumerate(cellTypePercentTable):
+        for columnIndex,j in enumerate(i):
+            if index == 0:
+                cellTypePercentTable[index][columnIndex] = Paragraph(j,wordStyleBold)
+            elif columnIndex == 0:
+                cellTypePercentTable[index][columnIndex] = Paragraph(j,wordStyleBold)
+            else:
+                cellTypePercentTable[index][columnIndex] = Paragraph(j,wordStyle)
+        
     legendData = []
     for key in cellTypeCountData.keys():
         if cellTypeCountData[key]['Celltype'] != 'MIT' and cellTypeCountData[key]['Celltype'] != 'mimi':
@@ -399,6 +439,7 @@ def createPdf(folder_path):
     histologicalScoreTable[1][3] = Table([[InteractiveChoiceBox('choice1')]])
     histologicalScoreTable[2][3] = Table([[InteractiveChoiceBox('choice2')]])
     histologicalScoreTable[3][3] = Table([[InteractiveChoiceBox('choice3')]])
+    histologicalScoreTable[4][3] = Table([[InteractiveTextField(name='Overall',x=5,y=-12)]])
     
     histologyTableContainer = page1TableContainer(thumbnail,histologicalScoreTable,20)
     
@@ -417,26 +458,34 @@ def createPdf(folder_path):
         for nestedKey,nestedValue in cellTypeCountData[key].items():
             if cellTypeCountData[key][nestedKey] == 'MIT':
                 mitoticInfoTable.append(['Total count',str(cellTypeCountData[key]['Total count'])])
-                mitoticInfoTable.append(['per mm2',str(round(cellTypeCountData[key]['per mm2'],2))])
+                mitoticInfoTable.append(['per mm²',str(round(cellTypeCountData[key]['per mm2'],2))])
                 mitoticInfoTable.append(['per 1000 tumor cells',str(cellTypeCountData[key]['per 1000 epithelial cells'])])
     mitoticScore = getMitoticScore(histologicalScoreData['Mitotic score']['AI score'])
     mitoticAIScore = str(histologicalScoreData['Mitotic score']['AI translated score'])
     mitoticInfoTable.append(['Total mitosis in 10 consecutive HPF',mitoticScore])
     mitoticInfoTable.append(['AI derived score',mitoticAIScore])
-    mitoticInfoTable = [[Paragraph(j, wordStyleBold) if i == 0 else Paragraph(j, wordStyle) for i, j in enumerate(row)] for row in mitoticInfoTable]
     
+    # mitoticInfoTable = [[Paragraph(j, wordStyle) if i == 0 else Paragraph(j, wordStyle) for i, j in enumerate(row)] for row in mitoticInfoTable]
+    for index,i in enumerate(mitoticInfoTable):
+        for columnIndex,j in enumerate(i):
+            if index == 0:
+                mitoticInfoTable[index][columnIndex] = Paragraph(j,wordStyleBold)
+            elif index == len(mitoticInfoTable) - 1:
+                mitoticInfoTable[index][columnIndex] = Paragraph(j,wordStyleBold)
+            else:
+                mitoticInfoTable[index][columnIndex] = Paragraph(j,wordStyle)
     
-    mitoticTable = Table(mitoticInfoTable)
+    mitoticTable = Table(mitoticInfoTable,colWidths=[100,50])
     mitoticTable.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),  # Make the first column bold
+        ('FONTNAME', (-1, -1), ( -1,-1), 'Times-Bold'),
         ('FONTNAME', (-1, 1), (-1, -1), 'Times-Roman'),
-        ('FONTSIZE',(0,0),(-1,-1),8),
+        ('FONTSIZE',(0,0),(-1,-1),7),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
-    mitoticImage = thumbnail
-    mitoticTableContainer = Table([[Image(mitoticImage, width=150, height=100,kind='proportional'),mitoticTable]])
+    mitoticImage = hpfThumbnail
+    mitoticTableContainer = Table([[Image(mitoticImage, width=150, height=100,kind='proportional'),mitoticTable]],colWidths=[400,250])
     mitoticTableContainer.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -533,7 +582,6 @@ def createPdf(folder_path):
     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
     ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
     ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),  # First row, excluding the first cell
-    
     ('FONTSIZE',(0,0),(-1,-1),8),
     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ('GRID', (0, 0), (-1, -1), 1, colors.black),
@@ -626,7 +674,7 @@ def createPdf(folder_path):
         [Paragraph('AI derived Tubule/Acinar formation score', wordStyleBold), Paragraph(str(tbInfo['Tubule score']), wordStyleBold)]
     ]
 
-    tubuleTable = Table(data)
+    tubuleTable = Table(data,colWidths=[100,50])
     tubuleTable.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),  # First row, excluding the first cell
@@ -645,7 +693,7 @@ def createPdf(folder_path):
 
     )
 
-    tubuleTableContainer = Table([['',tubuleTable]],colWidths=[250,250])
+    tubuleTableContainer = Table([['',tubuleTable]],colWidths=[400,250])
 
     # elements.append(Paragraph(text,styles))
     elements.append(tubuleTableContainer)
@@ -654,41 +702,52 @@ def createPdf(folder_path):
         tbImageContainer = Image(tbImage, width=500, height=500,kind='proportional')
         elements.append(tbImageContainer)
         elements.append(Paragraph(tbImageText,tbImageTextStyles))
+
     elements.append(PageBreak())    
 
     stilTableHeader = [''] + list(stilTable[next(iter(stilTable))].keys())
     stilCellTableHeader = ['no. of cells per mm²']+list(stilCellTable[next(iter(stilCellTable))].keys())
     cleanedStilTable = convertDictToArray(stilTable,[stilTableHeader],7)
+    for row,values in enumerate(cleanedStilTable):
+        for column,value in enumerate(values):
+            if stilColorMap.get(value.text) != None:
+                r, g, b = stilColorMap[value.text]
+                backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
+                data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=[15,50],rowHeights=[10])
+                cellStyle = TableStyle([
+                    ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ALIGN', (1, 1), (1, 1), 'LEFT'),
+                    ("ALIGN",(0,0),(0,0),'CENTER')
+                ])
+                data.setStyle(cellStyle)
+                cleanedStilTable[row][column] = data
+
     cleanedStilCellTable = convertDictToArray(stilCellTable,[stilCellTableHeader],7)
     table_width = 570 # Adjust as needed to fit within the page
     num_cols = len(cleanedStilCellTable[0])
-    col_widths = [table_width / num_cols] * num_cols
-
+    colWidth = [table_width / num_cols] * num_cols
+    
     # Create the table and set column widths
-    stilCellTypeArrayTable = Table(cleanedStilCellTable, colWidths=col_widths)
 
     # Add style to the table
     style = TableStyle([
             ('FONTNAME', (0, 0), (0, -1), 'Times-Bold'),  # Make the first column bold
             ('FONTNAME', (0, 0), (-1, -1), 'Times-Roman'),  # First row, excluding the first cell
-            ('BACKGROUND', (0, 1), (0, 1), colors.HexColor("#466E6C")),
-            ('BACKGROUND',(0,2),(0,2),colors.HexColor('#E9EE3B')),
-            ('BACKGROUND',(0,3),(0,3),colors.HexColor('#73E931')),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
             ('FONTSIZE',(0,0),(-1,-1),8),
-            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
 
     ])
-    updatedTableStyle = addBackgroundColor(cleanedStilCellTable,cellTypeRename,nucleiColorMap,style)
-    stilCellTypeArrayTable.setStyle(updatedTableStyle)
+    restructuredStilCellTypeTable = addSquaresInTable(cleanedStilCellTable,[10,52],[15],cellTypeRename,nucleiColorMap,stilColorMap=stilColorMap,secondRenameDictionary=None,secondColorMap=None)
+    stilCellTypeArrayTable = Table(restructuredStilCellTypeTable, colWidths=colWidth,rowHeights=[25,25,25,25])
+    stilCellTypeArrayTable.setStyle(style)
+
     
     stilArrayTable = Table(cleanedStilTable)
     stilArrayTableStyle = TableStyle([
-        ('BACKGROUND', (0, 1), (0, 1),colors.HexColor("#466E6C")),
-        ('BACKGROUND',(0,2),(0,2),colors.HexColor('#E9EE3B')),
-        ('BACKGROUND',(0,3),(0,3),colors.HexColor('#73E931')),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 1), (0, -1), 'Times-Bold'),  # Make the first column bold
         ('FONTSIZE',(0,0),(-1,-1),8),
@@ -729,7 +788,6 @@ def createPdf(folder_path):
 
     #Header and Footer
     def add_header(canvas, doc):
-
         # Create a table for patientDetails and set its style
         styles = getSampleStyleSheet()
         header1_style = ParagraphStyle(
@@ -755,12 +813,25 @@ def createPdf(folder_path):
         name='LabelStyle',
         fontSize=7,
         fontName='Times-Roman',
+        
         )
+
         patientDetails = [
-        [Paragraph(f'<b>ID</b>:{ID}',label_style), Paragraph(f'<b>Age</b>: {Age}',label_style), Paragraph(f'<b>Gender</b>: {Gender}',label_style)],
-        [Paragraph(f'<b>ER</b>:{ER}',label_style), Paragraph(f'<b>PR</b>:{PR}',label_style), Paragraph(f'<b>HER2</b>: {Her2}',label_style), Paragraph(f'<b>Stage</b>: {Stage}',label_style), Paragraph(f'<b>PAM50</b>: {PAM50}',label_style)],
+            [
+                
+                [Paragraph('<b>ID:</b>', label_style), InteractiveTextField(ID,"ID",10)],
+                [Paragraph('<b>Age:</b>', label_style), InteractiveTextField(Age,"Age",14)],
+                [Paragraph('<b>Gender:</b>', label_style), InteractiveTextField(Gender,"Gender",25)],
+            ],  
+            [
+                [Paragraph('<b>ER:</b>', label_style), InteractiveTextField(ER,"ER",12)],
+                [Paragraph('<b>PR:</b>', label_style), InteractiveTextField(PR,"PR",12)],
+                [Paragraph('<b>Her2:</b>', label_style), InteractiveTextField(Her2,"HER2",17)],
+                [Paragraph('<b>Stage:</b>', label_style), InteractiveTextField(Stage,"Stage",19)],
+                [Paragraph('<b>PAM50:</b>', label_style), InteractiveTextField(PAM50,"PAM50",25)],
+            ],
         ]
-        pageTitles = ['Summary','Mitotis','Nuclear pleomorphism','Tubular/Acinar formation','Tumor infiltrating lymphocytes']
+        pageTitles = ['Summary','Mitosis','Nuclear pleomorphism','Tubular/Acinar formation','Tumor infiltrating lymphocytes']
         pageTitle = pageTitles[canvas.getPageNumber() - 1]
         col_widths = 400 / 5
         table = Table(patientDetails,colWidths=col_widths)
@@ -796,7 +867,6 @@ def createPdf(folder_path):
         footer = Paragraph(footer_text, styles)
         width, height = footer.wrap(doc.width, doc.bottomMargin)
         footer.drawOn(canvas, 20, 10)
-
         pageNumber = str(canvas.getPageNumber())
         
         link_text = "Go to image viewer"
@@ -832,11 +902,41 @@ def createPdf(folder_path):
     frame = Frame(left_margin, bottom_margin, frame_width, frame_height,topPadding=70,showBoundary=1)
 
     # Add the PageTemplate to the document
-
     template = PageTemplate(id='my_template', frames=[frame], onPage=add_header, onPageEnd=add_footer)
+    
     doc.addPageTemplates([template])
-
     doc.build(elements)
 
-    print(f"PDF created: {pdf_file}")
 
+
+def get_ghostscript_path():
+    gs_names = ["gs", "gswin32", "gswin64c"]
+    for name in gs_names:
+        if shutil.which(name):
+            return shutil.which(name)
+    raise FileNotFoundError(
+        f"No GhostScript executable was found on path ({'/'.join(gs_names)})"
+    )
+
+
+def compress_pdf(path):
+    createPdf(path)
+    gs = get_ghostscript_path()
+    parentDirectory = os.path.dirname(path)
+    input_file_path = os.path.join(parentDirectory,"report.pdf")
+    output_file_path = os.path.join(parentDirectory,"report_compressed.pdf")
+    subprocess.call(
+        [
+            gs,
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            "-dPDFSETTINGS=/prepress",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-dBATCH",
+            "-sOutputFile={}".format(output_file_path),
+            input_file_path,
+        ]
+    )
+
+compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
