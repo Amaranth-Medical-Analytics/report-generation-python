@@ -366,7 +366,7 @@ def createPdf(folder_path):
     #Page 5 info
     segment_overlay_nuclei_heatmap = os.path.join(folder_path,"segment_overlay_nuclei_heatmap.png") 
     thumbnail = os.path.join(folder_path,"thumbnail.png")
-    hpfThumbnail = os.path.join(folder_path,'hpfThumbnail.png')  
+    hpfThumbnail = load_image_or_empty(os.path.join(folder_path,'hpfThumbnail.png')) 
     stils = os.path.join(folder_path,"stils.png")
     
     #Remove empty key
@@ -484,8 +484,9 @@ def createPdf(folder_path):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
-    mitoticImage = hpfThumbnail
-    mitoticTableContainer = Table([[Image(mitoticImage, width=150, height=100,kind='proportional'),mitoticTable]],colWidths=[400,250])
+    mitoticTableContainer = Table([[
+        Image(hpfThumbnail, width=150, height=100,kind='proportional') if hpfThumbnail != "" else ""
+        ,mitoticTable]],colWidths=[400,250])
     mitoticTableContainer.setStyle(TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -939,4 +940,4 @@ def compress_pdf(path):
         ]
     )
 
-# compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
+compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
