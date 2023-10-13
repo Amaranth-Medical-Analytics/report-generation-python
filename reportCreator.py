@@ -325,7 +325,7 @@ def createPdf(folder_path):
     with open(os.path.join(folder_path,"nucleoli_data.json"), 'r') as f:
         nucleoliData = json.load(f)
 
-    with open(os.path.join(folder_path,'1085b10-pt4_caseInfo.json'),'r') as caseData:
+    with open(os.path.join(folder_path,'caseInfo.json'),'r') as caseData:
         caseInfo = json.load(caseData)
 
     amaranth_logo = 'ama_logo.png'
@@ -933,4 +933,4 @@ def compress_pdf(path):
         ]
     )
 
-compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
+# compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
