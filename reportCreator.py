@@ -13,7 +13,7 @@ from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, Image,
                                 PageBreak, PageTemplate, Paragraph, Spacer,
                                 Table, TableStyle)
 
-#Main function is createPdf, takes a parameter that specifies the folder path of the files
+#Main function is compress_pdf, takes a parameter that specifies the folder path of the files
 
 #Necessary constant Rename and Color code dictionary
 cellTypeRename = {
@@ -131,7 +131,7 @@ class InteractiveChoiceBox(Flowable):
                             width=50,
                             height=10,
                             x = 5,
-                            y=-10,
+                            y=-6,
                             fontSize=7,
                             textColor=colors.black,
                             fontName='Times-Roman',
@@ -143,9 +143,12 @@ class InteractiveChoiceBox(Flowable):
         return
 
 class SquareFlowable(Flowable):
-    def __init__(self, size=5, color=colors.white):
+    def __init__(self, size=4, color=colors.white,value="",width=0,height=0):
         self.size = size
         self.color = color
+        self.value = value
+        self.width = width
+        self.height=height
 
     def wrap(self, width, height):
         return self.size, self.size
@@ -154,7 +157,13 @@ class SquareFlowable(Flowable):
         self.canv.setFillColor(self.color)
         self.canv.setStrokeColor(colors.black)
         self.canv.setLineWidth(0.5)
-        self.canv.rect(0, 0, self.size, self.size, fill=True)
+        self.canv.rect(-5, 0, self.size, self.size, fill=True)
+        # width,height = self.value.wrap(self.size,self.size)
+        
+        if self.value:
+            self.value.wrapOn(self.canv, self.width, self.height)
+            self.value.drawOn(self.canv, 0, 0)
+        
 
 #if image not found
 def load_image_or_empty(image_path):
@@ -221,14 +230,13 @@ def addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,firstrenameDict
                     if key in firstColorMap:
                         r, g, b = firstColorMap[key]
                         backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                        
-                        data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=colWidthTableCell,rowHeights=rowHeightTableCell)
+        
+                        data = Table([[SquareFlowable(size=4, color=backgroundColor,value=value,width=colWidthTableCell,height=rowHeightTableCell) ]])
                         
                         cellStyle = TableStyle([
                             ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
-                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('ALIGN', (1, 1), (1, 1), 'LEFT'),  
-                            ("ALIGN",(0,0),(0,0),'CENTER'),
+                            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
+                            ("ALIGN",(0,0),(-1,-1),"LEFT"),
                         ])
                         data.setStyle(cellStyle)
                         table[row][column] = data
@@ -239,12 +247,14 @@ def addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,firstrenameDict
                         if newKey in secondColorMap:
                             r, g, b = secondColorMap[newKey]
                             backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                            data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=colWidthTableCell,rowHeights=rowHeightTableCell)
+
+                            data = Table([[SquareFlowable(size=4, color=backgroundColor,value=value,width=colWidthTableCell,height=rowHeightTableCell) ]])
+                        
                             cellStyle =TableStyle([
                             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                            ('ALIGN', (-1, -1), (-1, -1), 'LEFT'),
+                            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
                             ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
-                            ("ALIGN",(0,0),(0,0),'CENTER'),
+                            ("ALIGN",(0,0),(-1,-1),"LEFT"),
                             ])
                             data.setStyle(cellStyle)
                             table[row][column] = data
@@ -252,13 +262,14 @@ def addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,firstrenameDict
                     if stilColorMap.get(value.text + ' TILs') != None:
                         r, g, b = stilColorMap[value.text + ' TILs']
                         backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                        data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=[10,55],rowHeights=[12])
+
+                        data = Table([[SquareFlowable(size=4, color=backgroundColor,value=value,width=colWidthTableCell,height=rowHeightTableCell) ]])
                         
                         cellStyle = TableStyle([
                             ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
-                            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),
                             ('ALIGN', (-1, -1), (-1, -1), 'LEFT'),
-                            ("ALIGN",(0,0),(0,0),'CENTER'),
+                            ("ALIGN",(0,0),(-1,-1),"LEFT"),
     
                         ])
                         data.setStyle(cellStyle)
@@ -270,18 +281,19 @@ def addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,firstrenameDict
 def page1TableContainer(image,table,height):
     width = 350
     colWidth,rowHeights = getColumnWidthRowHeight(table,width,height)
-    colWidth80 = colWidth[0]*0.90
-    colWidthTableCell = [colWidth80*0.10, colWidth80*0.95]
-    rowHeightTableCell = rowHeights[0]*0.80
+    colWidth80 = colWidth[0]*0.75
+    rowHeightTableCell = rowHeights[0]
 
     gridStyle =  (TableStyle([
     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
     ('FONTNAME', (-1, 1), (-1, -1), 'Times-Roman'),
     ('WORDWRAP', (0, 0), (-1, -1), True),
-    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ('VALIGN', (0, 0), (-1, 0), 'BOTTOM'),  # Set the first row to 'BOTTOM'
+    ('VALIGN', (0, 0), (0, -1), 'BOTTOM'),  # Set the first column to 'BOTTOM'
+    ('VALIGN', (1, 1), (-1, -1), 'MIDDLE'),
     ('GRID', (0, 0), (-1, -1), 1, colors.black),
 ]))
-    restructuredTable = addSquaresInTable(table,colWidthTableCell,rowHeightTableCell,segmentRename,segmentColorMap,cellTypeRename,nucleiColorMap)
+    restructuredTable = addSquaresInTable(table,colWidth80,rowHeightTableCell,segmentRename,segmentColorMap,cellTypeRename,nucleiColorMap)
     newTable = Table(restructuredTable,colWidths=colWidth,rowHeights=rowHeights)
     newTable.setStyle(gridStyle)
     
@@ -290,7 +302,7 @@ def page1TableContainer(image,table,height):
     
     TableContainer.setStyle(TableStyle([
     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'), #yhaper
+    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
     return TableContainer
@@ -359,7 +371,7 @@ def createPdf(folder_path):
     #Page 5 info
     segment_overlay_nuclei_heatmap = os.path.join(folder_path,"segment_overlay_nuclei_heatmap.png") 
     thumbnail = os.path.join(folder_path,"thumbnail.png")
-    hpfThumbnail = load_image_or_empty(os.path.join(folder_path,'hpfThumbnail.png')) 
+    hpfThumbnail = load_image_or_empty(os.path.join(folder_path,'hpfThumbnail.png'))
     stils = os.path.join(folder_path,"stils.png")
     
     #Remove empty key
@@ -432,7 +444,7 @@ def createPdf(folder_path):
     histologicalScoreTable[1][3] = Table([[InteractiveChoiceBox('choice1')]])
     histologicalScoreTable[2][3] = Table([[InteractiveChoiceBox('choice2')]])
     histologicalScoreTable[3][3] = Table([[InteractiveChoiceBox('choice3')]])
-    histologicalScoreTable[4][3] = Table([[InteractiveTextField(name='Overall',x=5,y=-12)]])
+    histologicalScoreTable[4][3] = Table([[InteractiveTextField(name='Overall',x=5,y=-8)]])
     
     histologyTableContainer = page1TableContainer(thumbnail,histologicalScoreTable,20)
     
@@ -477,6 +489,7 @@ def createPdf(folder_path):
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
     ]))
+
     mitoticTableContainer = Table([[
         Image(hpfThumbnail, width=150, height=100,kind='proportional') if hpfThumbnail != "" else ""
         ,mitoticTable]],colWidths=[400,250])
@@ -523,7 +536,7 @@ def createPdf(folder_path):
             subHpfTable = [[""] * 5 for _ in range(5)]
 
             # Calculate columnLength once based on the length of subHpfList
-            columnLength = min(4, len(images))
+            columnLength = min(5, len(images))
 
             # Populate subHpfTable with images
             for column in range(5):
@@ -707,13 +720,12 @@ def createPdf(folder_path):
             if stilColorMap.get(value.text) != None:
                 r, g, b = stilColorMap[value.text]
                 backgroundColor = colors.Color(red=(r / 255), green=(g / 255), blue=(b / 255))
-                data = Table([[SquareFlowable(size=5, color=backgroundColor), value]],colWidths=[15,50],rowHeights=[10])
+
+                data = Table([[SquareFlowable(size=4, color=backgroundColor,value=value,width=52,height=20) ]],rowHeights=[12])
                 cellStyle = TableStyle([
                     ('FONTNAME', (-1, 1), (-1, -1), 'Times-Bold'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                    ('ALIGN', (1, 1), (1, 1), 'LEFT'),
-                    ("ALIGN",(0,0),(0,0),'CENTER')
-                ])
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),  
+                    ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),])
                 data.setStyle(cellStyle)
                 cleanedStilTable[row][column] = data
 
@@ -721,6 +733,7 @@ def createPdf(folder_path):
     table_width = 570 # Adjust as needed to fit within the page
     num_cols = len(cleanedStilCellTable[0])
     colWidth = [table_width / num_cols] * num_cols
+    colWidth80 = colWidth[0]*0.80
     
     # Create the table and set column widths
 
@@ -731,11 +744,10 @@ def createPdf(folder_path):
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Times-Bold'),
             ('FONTSIZE',(0,0),(-1,-1),8),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'), 
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
-
     ])
-    restructuredStilCellTypeTable = addSquaresInTable(cleanedStilCellTable,[10,52],[15],cellTypeRename,nucleiColorMap,stilColorMap=stilColorMap,secondRenameDictionary=None,secondColorMap=None)
+    restructuredStilCellTypeTable = addSquaresInTable(cleanedStilCellTable,colWidth80,[18],cellTypeRename,nucleiColorMap,stilColorMap=stilColorMap,secondRenameDictionary=None,secondColorMap=None)
     stilCellTypeArrayTable = Table(restructuredStilCellTypeTable, colWidths=colWidth,rowHeights=[25,25,25,25])
     stilCellTypeArrayTable.setStyle(style)
 
@@ -744,8 +756,10 @@ def createPdf(folder_path):
     stilArrayTableStyle = TableStyle([
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 1), (0, -1), 'Times-Bold'),  # Make the first column bold
-        ('FONTSIZE',(0,0),(-1,-1),8),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTSIZE',(0,0),(-1,-1),7),
+        # ('VALIGN', (0, 0), (-1, 0), 'BOTTOM'),  # Set the first row to 'BOTTOM'
+        ('VALIGN', (0, 0), (-1, -1), 'BOTTOM'),  # Set the first column to 'BOTTOM'
+        # ('VALIGN', (1, 1), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
 
     ])
@@ -914,6 +928,7 @@ def get_ghostscript_path():
 
 
 def compress_pdf(path):
+    
     createPdf(path)
     gs = get_ghostscript_path()
     parentDirectory = os.path.dirname(path)
@@ -933,4 +948,3 @@ def compress_pdf(path):
         ]
     )
 
-# compress_pdf(r"C:\Users\joash\OneDrive\Documents\ReportImage\report")
