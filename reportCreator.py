@@ -1,24 +1,17 @@
 
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, PageBreak, Paragraph,Image,Frame,PageTemplate,BaseDocTemplate
-from reportlab.lib.styles import getSampleStyleSheet,ParagraphStyle
-from reportlab.platypus import Paragraph
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import Spacer
-from reportlab.pdfgen import canvas
-from reportlab.lib import colors
-from reportlab.lib import enums
-from reportlab.pdfbase import pdfdoc
-from reportlab.lib.units import inch
-from reportlab.pdfbase import acroform
-from reportlab.platypus import Flowable
-from reportlab.lib.utils import ImageReader
-from reportlab.graphics.shapes import Drawing, Rect
 import datetime
 import json
-import re
 import os
-import subprocess
+import re
 import shutil
+import subprocess
+
+from reportlab.lib import colors, enums
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import (BaseDocTemplate, Flowable, Frame, Image,
+                                PageBreak, PageTemplate, Paragraph, Spacer,
+                                Table, TableStyle)
 
 #Main function is createPdf, takes a parameter that specifies the folder path of the files
 
@@ -335,7 +328,7 @@ def createPdf(folder_path):
     with open(os.path.join(folder_path,'1085b10-pt4_caseInfo.json'),'r') as caseData:
         caseInfo = json.load(caseData)
 
-    amaranth_logo = os.path.join(r"C:\Users\joash\OneDrive\Desktop\moticPdf",'ama_logo.png')
+    amaranth_logo = 'ama_logo.png'
     qrCode = os.path.join(folder_path,"qrCode.png")
 
     #Page 3 info

@@ -1,31 +1,29 @@
-from PIL import Image, ImageDraw, ImageFont
 import json
-import numpy as np
-import cv2
-import pandas as pd
-from ast import literal_eval
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import qrcode
-import re 
-import statistics
-import torch
-import geojson
-import seaborn as sns
 import os
+import re
 import shutil
+from ast import literal_eval
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import qrcode
+import seaborn as sns
 import userFunctions
+from PIL import Image, ImageDraw, ImageFont
+
 #import AIReport.userFunctions as userFunctions
 
-def postReportStats(slideName, path, projectID, datasetID, config_file_path):
+def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, slideInfoFile = None):
     
 
-    config_data = userFunctions.read_config_file(config_file_path)
+    # config_data = userFunctions.read_config_file(config_file_path)
 
-    if config_data:
-        # Access parameters from the config data
-        slideInfo = config_data.get("slideInfo")
-        slideInfoFile = config_data.get("slideInfoFile")
+    # if config_data:
+    #     # Access parameters from the config data
+    #     slideInfo = config_data.get("slideInfo")
+    #     slideInfoFile = config_data.get("slideInfoFile")
 
 
     #Input slide data
