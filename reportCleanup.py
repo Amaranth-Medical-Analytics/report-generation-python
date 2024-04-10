@@ -123,7 +123,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     draw.rectangle([(box_x, box_y), (resizeW, box_y + 20)], fill='white')  # Adjust dimensions and color as needed
     font = ImageFont.truetype("Gidole-Regular.ttf")
     text = '2 mm'
-    text_width, text_height = draw.textsize(text)
+    _, _, text_width, text_height = draw.textbbox((0, 0), text=text, font=font)
     text_x = box_x + (box_width - text_width) // 2
     text_y = box_y + (20 - text_height) // 2
     draw.text((text_x, text_y), text, fill=(0, 0, 0, 255), font=font)  # Adjust color as needed
@@ -713,7 +713,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     draw.rectangle([(box_x, box_y), (width, box_y + 20)], fill= 'white')  # Adjust the dimensions and color as needed
     font = ImageFont.truetype("Gidole-Regular.ttf")
     text = '2 mm'
-    text_width, text_height = draw.textsize(text)
+    _, _, text_width, text_height = draw.textbbox((0, 0), text=text, font=font)
     text_x = box_x + (box_width - text_width) // 2
     text_y = box_y + (20 - text_height) // 2
     draw.text((text_x, text_y), text, fill=(0, 0, 0, 255), font = font)  # Adjust the color as needed
