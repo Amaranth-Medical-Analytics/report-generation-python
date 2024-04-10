@@ -631,7 +631,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     HPF_mitTable = pd.DataFrame(columns = columns, index = rows)
     HPF_mitTable.at['Total count', 'Mitotic cells'] = cellTable.at['MIT', 'Total count']
     HPF_mitTable.at['per mm2', 'Mitotic cells'] = round(cellTable.at['MIT', 'per mm2'], 1)
-    HPF_mitTable.at['per 1000 tumor cells', 'Mitotic cells'] = round(cellTable.at['MIT', 'per mm2'], 1)
+    HPF_mitTable.at['per 1000 tumor cells', 'Mitotic cells'] = round(cellTable.at['MIT', 'per 1000 epithelial cells'], 1)
     HPF_mitTable.at['Total mitosis in 10 consecutive HPF', 'Mitotic cells'] = mitInfo[0]['MIT']
     HPF_mitTable.at['AI derived score', 'Mitotic cells'] = mitScore
     HPF_mitTable.to_json(report + 'HPF_mitTable.json', orient='index')
