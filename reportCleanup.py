@@ -858,3 +858,391 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
         'sTILs/celltype' : 'stils_celltypeTable.json'}
     with open(report + 'table_metadata.json', "w") as json_file:
         json.dump(JSON_info, json_file)
+
+    
+    mitTableFile = f'{report}HPF_mitTable.json'
+    segmentTableFile = f'{report}table2_summary.json'
+    nucleiTableFile = f'{report}table3_summary.json'
+    nucleiSegmentTable = f'{report}table4_summary.json'
+    sideFile = f'{report}sideDensity.json'
+    vesicularityData = f'{report}vesicularityDensity.json'
+    npDataFile = f'{report}nucleoli_data.json'
+
+    npStats = f'{path}/nuclear_pleomorphism_data.json'
+    tbFile = f'{report}report/tbInfo.json'
+
+    with open(f'{report}table1_summary.json', 'r') as file:
+        aiScore = json.load(file)
+
+    mitTable = pd.read_json(mitTableFile)
+
+    with open(segmentTableFile, 'r') as file:
+        segmentData = json.load(file)
+    
+    total_area_mm2 = round(sum(value["area in mm2"] for key, value in segmentData.items() if key != "Other"), 1)
+
+
+    with open(nucleiTableFile, 'r') as file:
+        nucleiData = json.load(file)
+
+    nucleiData = pd.read_json(nucleiTableFile)
+    nucleiData.columns = nucleiData.iloc[0]
+    #nucleiData
+
+    ce = nucleiData.at['Total count', 'CE']
+
+    ai = int(mitTable['AI derived score'][0])
+    totalCount = int(mitTable['Total count'][0])
+    mm2 = round(mitTable['per mm2'][0], 1)
+    tumorMit = round((mitTable['Total count'][0] * 1000)/ce, 1)
+    hpfMit = int(mitTable['Total mitosis in 10 consecutive HPF'][0])
+
+
+    json_data = {
+        "model": "Mitotic detection",
+        "description": "The model helps you identify the mitotic and mitotic mimic cells in the image. \n\n [Detailed information](https://amaranth-studies.vercel.app/platform/models/13) \n\n\n\n## Abbreviations\n\n MIT: Mitotic cells\n\n mimi: Mitotic mimic cells",
+        "tables": [{
+            "title": f'{slideName}',
+            "caption": f"AI derived score: {ai} \nTotal area analysed in mm\u00B2: {total_area_mm2}. \nTotal no. of tumor cells: {ce}",
+            "columns": ['Feature', 'Mitotic cells'],
+            "data": [
+                {
+                    'Feature': 'Total Count',
+                    'Mitotic cells': totalCount
+                }, 
+                {
+                    'Feature': 'Per mm\u00B2',
+                    'Mitotic cells': mm2
+                },
+                {
+                    'Feature': 'Per 1000 tumor cells',
+                    'Mitotic cells': tumorMit
+                },
+                {
+                    'Feature': 'Total mitosis in 10 consecutive HPF',
+                    'Mitotic cells' : hpfMit
+                }
+            ],
+        }]
+    }
+
+    mitout = f'{report}mitoticSummaryTable.json'
+    with open(mitout, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+
+    segmentData = pd.read_json(segmentTableFile)
+    segmentData = segmentData.round(1)
+    segmentData.reset_index(inplace=True)
+    new_column_names = list(segmentData.columns)
+    new_column_names[0] = ' '
+    segmentData.columns = new_column_names
+
+    data_dict = segmentData.to_dict(orient='records')
+
+    json_data = {
+        "model": "Segmentation model",
+        "description": "[Detailed information](https://amaranth-studies.vercel.app/platform/models/13) \n\n\n\n## Abbreviations\n\n BR-D: Normal/dysplastic breast\n\n CT: Cellular Tumor\n\nFAT: Fatty tissue\n\nNE: Necrosis\n\nST: Stroma",
+        "tables": [{
+            "title": f'{slideName}',
+            "caption": f'Total area analyzed: {total_area_mm2} mm\u00B2',
+            "columns": list(segmentData.columns),
+            "data": data_dict
+        }]
+    }
+
+    NNout = f'{report}NNsegmentSummaryTable.json'
+    with open(NNout, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+
+    nucleiData = pd.read_json(nucleiTableFile)
+
+    nucleiData.reset_index(inplace=True)
+    nucleiData.columns = nucleiData.iloc[0]
+
+# Drop the first row (if needed)
+    nucleiData = nucleiData.drop(0)
+
+    with open(nucleiSegmentTable, 'r') as file:
+        # Load JSON data from the file
+        nucleiSegmentData = json.load(file)
+    
+    nucleiSegmentData = pd.DataFrame(nucleiSegmentData)
+
+    nucleiSegmentData.reset_index(inplace=True)
+    nucleiSegmentData = nucleiSegmentData.rename(columns={nucleiSegmentData.columns[0]: 'Segment'})
+
+    with open(sideFile, 'r') as file:
+        # Load JSON data from the file
+        sideData = json.load(file)
+        
+    sideData = pd.DataFrame(sideData)
+    sideData.columns = sideData.iloc[0]
+    sideData = sideData.transpose()
+    # Drop the first row (if needed)
+    #sideData = sideData.drop(0)
+    sideData.reset_index(drop=True, inplace=True)
+
+    with open(vesicularityData, 'r') as file:
+        # Load JSON data from the file
+        vesicularity = json.load(file)
+        
+    vesicularity = pd.DataFrame(vesicularity)
+    vesicularity.columns = vesicularity.iloc[0]
+    vesicularity = vesicularity.transpose()
+    # Drop the first row (if needed)
+    #sideData = sideData.drop(0)
+    vesicularity.reset_index(drop=True, inplace=True)
+
+    with open(npDataFile, 'r') as file:
+        # Load JSON data from the file
+        nuclearpleomorphism = json.load(file)
+
+    nuclearpleomorphism = pd.DataFrame.from_dict(nuclearpleomorphism, orient='index', columns=['Value'])
+    # np = pd.DataFrame(np)
+    # np.columns = np.iloc[0]
+    # np = np.transpose()
+    # # Drop the first row (if needed)
+    # #sideData = sideData.drop(0)
+    #np.reset_index(drop=True, inplace=True)
+    nuclearpleomorphism.reset_index(inplace=True)
+    nuclearpleomorphism.columns = ['Confidence', 'Value']
+
+    nuclearpleomorphismBar = nuclearpleomorphism.to_dict('records')
+
+    with open(npStats, 'r') as file:
+        npData = json.load(file)
+        
+    side = npData['side_data']
+    data_min = min(side)
+    data_max = max(side)
+
+    # Define bin edges
+    bin_edges = np.arange(data_min, data_max + 2, 1)
+    bin_edges = np.round(bin_edges)
+    kde = gaussian_kde(side)
+
+    points_to_evaluate = bin_edges  # Define points to evaluate the KDE
+    density_values = kde.evaluate(points_to_evaluate)
+
+
+    sideplt = []
+    for i in range(len(bin_edges)):
+        if round(density_values[i], 2) == 0.0:
+            continue
+        sideplt.append({"Bin": str(round(bin_edges[i], 0)), "density": round(density_values[i], 2)})
+
+    with open(npStats, 'r') as file:
+        npData = json.load(file)
+        
+    vesi = npData['vasicularity_data']
+    data_min = min(vesi)
+    data_max = max(vesi)
+
+    # Define bin edges
+    bin_edges = np.arange(data_min, data_max + 2, 0.05)
+    #bin_edges = np.round(bin_edges, 4)
+    kde = gaussian_kde(vesi)
+
+    points_to_evaluate = bin_edges  # Define points to evaluate the KDE
+    density_values = kde.evaluate(points_to_evaluate)
+
+    vesiplt = []
+    for i in range(len(bin_edges)):
+        if round(density_values[i], 2) == 0.00:
+            continue
+        vesiplt.append({"Bin": str(round(bin_edges[i], 2)), "density": round(density_values[i], 2)})
+
+    data_dict1 = nucleiData.to_dict(orient='records')
+    data_dict2 = nucleiSegmentData.to_dict(orient='records')
+    data_dict3 = sideData.to_dict(orient='records')
+    data_dict4 = vesicularity.to_dict(orient='records')
+    data_dict5 = nuclearpleomorphism.to_dict(orient='records')
+
+    npScore = aiScore['Nuclear pleomorphism']['AI translated score']
+
+    json_data = {
+        "model": "Nuclei detection model",
+        "description": "[Detailed information](https://amaranth-studies.vercel.app/platform/models/13) \n\n\n\n## Abbreviations\n\n TIL: Tumor infiltrating lymphocytes\n\n fib: Fibroblasts\n\nCE: Tumor cells\n\nnCE: Normal cells\n\nEnd: Endothelial cells\n\nMph: Macrophage\n\nplasma: Plasma cells\n\nNeu: Neutrophils\n\nmimi: Mitotic mimic cells\n\nMIT: Mitotic cells",
+        "tables": [{
+            "title": f'{slideName}',
+            "caption": f'AI derived nuclear pleomorphism score: {npScore}',
+            "columns": list(nucleiData.columns),
+            "data": data_dict1
+        },
+        {
+            "title": f'{slideName}',
+            "caption": ' ',
+            "columns": list(nucleiSegmentData.columns),
+            "data": data_dict2
+        },
+        {
+            "title": 'Cell size statistics',
+            "caption": ' ',
+            "columns": list(sideData.columns),
+            "data": data_dict3
+        },
+        {
+            "title": 'Cell vesicularity statistics',
+            "caption": ' ',
+            "columns": list(vesicularity.columns),
+            "data": data_dict4
+        },
+        {
+            "title": 'Nucleoli statistics',
+            "caption": ' ',
+            "columns": list(nuclearpleomorphism.columns),
+            "data": data_dict5
+        }],
+        "plots": [{
+            "title": "Nuclear Pleomorphism",
+            "caption": " ",
+            "type": "bar",
+            "data": nuclearpleomorphismBar,
+            "xAxis": {
+                "title": "Confidence",
+                "dataKey": "Confidence"
+            },
+            "yAxis": {
+                "title": "Value"
+            },
+            "mode": "group",
+            "legend": {
+                "title": "Legend"
+            },
+            "showLegend": "true",
+            "traces": [
+                {
+                "color": "#8884d8",
+                "dataKey": "Value",
+                "name": "Value"
+                }
+            ]
+        },
+        {
+            "title": "Cell size statistics",
+            "caption": "Area chart in recharts",
+            "type": "area",
+            "data": sideplt,
+            "xAxis": {
+                "dataKey": "Bin",
+                "title": "Cell size"
+            },
+            "yAxis": {
+                "title": "density"
+            },
+            "legend": {
+                "title": "Legend"
+            },
+            "showLegend": "true",
+            "traces": [
+            {
+            "dataKey": "density",
+            "name": "density"
+            }
+        ]
+        },
+            {
+            "title": "Cell vesicularity statistics",
+            "caption": "Area chart in recharts",
+            "type": "area",
+            "data": vesiplt,
+            "xAxis": {
+                "dataKey": "Bin",
+                "title": "Cell vesicularity"
+            },
+            "yAxis": {
+                "title": "density"
+            },
+            "legend": {
+                "title": "Legend"
+            },
+            "showLegend": "true",
+            "traces": [
+            {
+            "dataKey": "density",
+            "name": "density"
+            }
+        ]
+        }
+        ]
+    }
+
+    NNout = f'{report}nucleiDataSummaryTable.json'
+
+    with open(NNout, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+
+    with open(tbFile, 'r') as file:
+        tbData = json.load(file)
+
+    
+    tbStats = np.array([['Total number in CT', tbData['total_number_tubules_in_ct_10']],
+                 ['Total percent area in CT', round(tbData['total_percentage_tubule_area_in_ct'], 2)],
+                 ['Tubules per mm\u00B2', round(tbData['Tubule/mm2'], 2)]])
+
+    tb_df = pd.DataFrame(tbStats, columns=[' ', 'Tubules'])
+
+    data_dict = tb_df.to_dict(orient='records')
+    tbScore = aiScore['Glandular (Acinar)/ Tubular Differentiation']['AI translated score']
+
+
+    json_data = {
+        "model": "Tubule formation",
+        "description": "[Detailed information](https://amaranth-studies.vercel.app/platform/models/13) \n\n\n\n## Abbreviations\n\n tubule_ct: Tubules in core tumor\n\n tubule_not_ct: Tubules outside of core tumor",
+        "tables": [{
+            "title": f'{slideName}',
+            "caption": f'AI derived Glandular/Tubular differentiation score: {tbScore}',
+            "columns": list(tb_df.columns),
+            "data": data_dict
+        }]
+    }
+
+    tbOut = f'{report}tubuleSummaryTable.json'
+    with open(tbOut, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+
+    mimiVal = round(nucleiData.loc[2,'mimi'], 2)
+    mitVal = round(nucleiData.loc[2,'MIT'], 2)
+
+    json_data = {
+        "model": "High Power Fields",
+        "description": f"[Detailed information](https://amaranth-studies.vercel.app/platform/models/13)\n\nWe identify 10 High Power Field (HPF) starting with the HPF that has highest mitotic cells. We scan right and then down. We avoid areas with low tumor content and high immune infiltrate.  We have used the diameter of 0.51 mm so the total area of 2mm2.  According to the guidelines from Royal College of Pathologists (G148 HR, June 2016) the score is calculated as below.\n\nScore 1: up to 7\n\nScore 2: 8 - 14\n\nScore 3: more than 15\n\n**Total mitotic cells per mm\u00B2: {mitVal}**\n\n**Total mitotic mimic cells per mm\u00B2: {mimiVal}**"
+    }
+
+    hpfOut = f'{report}HPFSummaryTable.json'
+    with open(hpfOut, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+
+    tilsFile1 = f'{report}stilsTable.json'
+    tils1 = pd.read_json(tilsFile1)
+    tils1.reset_index(inplace=True)
+    tils1 = tils1.rename(columns={tils1.columns[0]: 'Features'})
+
+    tilsFile2 = f'{folder_path}report/stils_celltypeTable.json'
+    tils2 = pd.read_json(tilsFile2)
+    tils2.reset_index(inplace=True)
+    tils2 = tils2.rename(columns={tils2.columns[0]: 'Celltypes'})
+
+    data_dict1 = tils1.to_dict(orient='records')
+    data_dict2 = tils2.to_dict(orient='records')
+
+    json_data = {
+        "model": "Tumor infiltrating lymphocytes",
+        "description": "[Detailed information](https://amaranth-studies.vercel.app/platform/models/13) \n\n\n\n## Abbreviations\n\n CT: Core tumor\n\n iCT: Core tumor + lymphocytes\n\npST: Peri-tumoral Stroma\n\nipST: Peri-tumoral Stroma + lymphocytes\n\nST: Stroma\n\niST: Stroma + lymphocytes\n\n",
+        "tables": [{
+            "title": f'{slideName}',
+            "caption": ' ',
+            "columns": list(tils1.columns),
+            "data": data_dict1
+        },
+        {
+            "title": f'{slideName}',
+            "caption": ' ',
+            "columns": list(tils2.columns),
+            "data": data_dict2
+        }]
+    }
+
+    tilOut = f'{report}TILsummaryTable.json'
+    with open(tilOut, "w") as outfile:
+        json.dump(json_data, outfile, indent = 4)  # Indent for readability
