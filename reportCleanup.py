@@ -12,6 +12,7 @@ import qrcode
 import seaborn as sns
 import userFunctions
 from PIL import Image, ImageDraw, ImageFont
+from scipy.stats import gaussian_kde
 
 #import AIReport.userFunctions as userFunctions
 
@@ -1218,7 +1219,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     tils1.reset_index(inplace=True)
     tils1 = tils1.rename(columns={tils1.columns[0]: 'Features'})
 
-    tilsFile2 = f'{folder_path}report/stils_celltypeTable.json'
+    tilsFile2 = f'{report}stils_celltypeTable.json'
     tils2 = pd.read_json(tilsFile2)
     tils2.reset_index(inplace=True)
     tils2 = tils2.rename(columns={tils2.columns[0]: 'Celltypes'})
