@@ -870,7 +870,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     npDataFile = f'{report}nucleoli_data.json'
 
     npStats = f'{path}/nuclear_pleomorphism_data.json'
-    tbFile = f'{report}report/tbInfo.json'
+    tbFile = f'{report}tbInfo.json'
 
     with open(f'{report}table1_summary.json', 'r') as file:
         aiScore = json.load(file)
