@@ -929,7 +929,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
 
     mitout = f'{report}mitoticSummaryTable.json'
     with open(mitout, "w") as outfile:
-        json.dump(json_data, outfile, indent = 4)  # Indent for readability
+        json.dump(json_data, outfile, indent = 4, default = int)  # Indent for readability
 
     segmentData = pd.read_json(segmentTableFile)
     segmentData = segmentData.round(1)
