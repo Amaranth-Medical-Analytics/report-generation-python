@@ -92,7 +92,7 @@ def mitoticScoreCalc(MIT_hpf):
 def npScoreCalc(sideMean, sideIQR, confidence):
     npScore = 2
     
-    if sideMean < 8 and sideIQR < 2 and confidence < 0.25:
+    if sideMean < 8.5 and sideIQR < 2.5 and confidence < 0.25:
         npScore = 1
     
     temp = 0
