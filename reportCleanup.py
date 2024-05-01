@@ -1224,7 +1224,7 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
         "tables":[{
             "title": 'Mitotic cells identified per HPF',
             "caption": ' ',
-            "columns": list(mit_hpf_count.columns),
+            "columns": ['HPF', 'values'],
             "data": data_dict
         }]
     }
