@@ -280,6 +280,11 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
         #Remove any mitotic cells which don't belong to any HPFs
         mit = mit[mit['HPF'].notna()]
         mit = mit.sort_values(by='HPF', ascending=True)
+
+        mit_hpf_count = mit['HPF'].value_counts()
+        mit_hpf_count = pd.DataFrame(mit_hpf_count)
+        mit_hpf_count = mit_hpf_count.reset_index()
+        mit_hpf_count.columns = ['HPF', 'values']
         
         #Expansion_pixels is the expanding factor for mitotic cells. Currently hard coded
         expansion_pixels = 50
@@ -1205,9 +1210,23 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
     mimiVal = round(nucleiData.loc[2,'mimi'], 2)
     mitVal = round(nucleiData.loc[2,'MIT'], 2)
 
+    if HPFabsent:
+        data_dict = ''
+        tot_mit_hpf_count = 0
+    else:
+        data_dict = mit_hpf_count.to_dict(orient='records')
+        tot_mit_hpf_count = mit_hpf_count['values'].sum()
+    
+    
     json_data = {
         "model": "High Power Fields",
-        "description": f"[Detailed information](https://amaranth-studies.vercel.app/platform/models/13)\n\nWe identify 10 High Power Field (HPF) starting with the HPF that has highest mitotic cells. We scan right and then down. We avoid areas with low tumor content and high immune infiltrate.  We have used the diameter of 0.51 mm so the total area of 2mm2.  According to the guidelines from Royal College of Pathologists (G148 HR, June 2016) the score is calculated as below.\n\nScore 1: up to 7\n\nScore 2: 8 - 14\n\nScore 3: more than 15\n\n**Total mitotic cells per mm\u00B2: {mitVal}**\n\n**Total mitotic mimic cells per mm\u00B2: {mimiVal}**"
+        "description": f"[Detailed information](https://amaranth-studies.vercel.app/platform/models/13)\n\nWe identify 10 High Power Field (HPF) starting with the HPF that has highest mitotic cells. We scan right and then down. We avoid areas with low tumor content and high immune infiltrate.  We have used the diameter of 0.51 mm so the total area of 2mm2.  According to the guidelines from Royal College of Pathologists (G148 HR, June 2016) the score is calculated as below.\n\nScore 1: up to 7\n\nScore 2: 8 - 14\n\nScore 3: more than 15\n\n**Total mitotic cells per mm\u00B2: {mitVal}**\n\n**Total mitotic mimic cells per mm\u00B2: {mimiVal}**\n\n**Total mitotic cells in 10 HPFs: {tot_mit_hpf_count}**",
+        "tables":[{
+            "title": 'Mitotic cells identified per HPF',
+            "caption": ' ',
+            "columns": list(mit_hpf_count.columns),
+            "data": data_dict
+        }]
     }
 
     hpfOut = f'{report}HPFSummaryTable.json'
