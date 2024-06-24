@@ -562,18 +562,26 @@ def postReportStats(slideName, path, projectID, datasetID, slideInfo = False, sl
 
     # Create the DataFrame
     table1 = pd.DataFrame(columns = columns, index = rows)
-    mitInfo = userFunctions.MITcalc(path + '/mitotic.csv', path + '/hpf.csv', path + '/nuclei.csv')
-    mitInfo_cellperCE = int(round(mitInfo[1], 0))
+    (MIT_hpf, 
+     MITcellPerCE, 
+     MITcells, 
+     CEcells) = userFunctions.MITcalc(path + '/mitotic.csv', path + '/hpf.csv', path + '/nuclei.csv')
+    mitInfo_cellperCE = MITcellPerCE
 
     if HPFabsent:
         mitScore = 1
         
+        if CEcells >= 10000 and MITcells >= 100:
+            mitScore = 3
+
+        #Calculations prior to 24 June 2024
         #Will enter here only if HPFs were not found.
         #Also the values here are hard coded
-        if mitInfo_cellperCE > 20:
-            mitScore = 2
-        if mitInfo_cellperCE > 40:
-            mitScore = 3
+        # if mitInfo_cellperCE > 20:
+        #     mitScore = 2
+        # if mitInfo_cellperCE > 40:
+        #     mitScore = 3
+
     else:
         mitScore = userFunctions.mitoticScoreCalc(mitInfo[0])
 
