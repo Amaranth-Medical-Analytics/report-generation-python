@@ -46,13 +46,25 @@ def find_polygon_centroid(polygon_coords):
     return centroid_x, centroid_y
 
 def tbCalc(tb_mm, percentTB):
-    tbScore = 2
     
-    #These values are hard coded right now. May want to consult Dr Nameeta about it
-    if tb_mm >= 10 and percentTB > 3:
+    # 1. Score 1 : > 7.5 tubules per mm2
+    # 2. Score 2 : > 1.5 and <= 7.5 tubules per mm2
+    # 3. Score 3 : <= 1.5 tubules per mm2
+    if tb_mm > 7.5:
         tbScore = 1
-    if tb_mm < 3 and percentTB < 1.5:
+    elif tb_mm > 1.5 and tb_mm <= 7.5:
+        tbScore = 2
+    elif tb_mm <= 1.5:
         tbScore = 3
+
+    #Calculation prior to 24 Jun 2024
+    # tbScore = 2
+    
+    # #These values are hard coded right now. May want to consult Dr Nameeta about it
+    # if tb_mm >= 10 and percentTB > 3:
+    #     tbScore = 1
+    # if tb_mm < 3 and percentTB < 1.5:
+    #     tbScore = 3
         
     return tbScore
 
@@ -72,7 +84,7 @@ def MITcalc(mimiMITfile, hpfMITfile, celltypeFile):
     else:
         MIT_hpf = {'HPF': 0, 'MIT': 0}
         
-    return MIT_hpf, MITcellPerCE
+    return MIT_hpf, MITcellPerCE, MITcells, CEcells
 
 def mitoticScoreCalc(MIT_hpf):
     
@@ -80,31 +92,46 @@ def mitoticScoreCalc(MIT_hpf):
     lowCriteria = 7
     midCriteria = 14
     
-    if MIT_hpf['MIT'] < lowCriteria:
+    if MIT_hpf['MIT'] <= lowCriteria:
         MITscore = 1
-    elif MIT_hpf['MIT'] >= lowCriteria and MIT_hpf['MIT'] < midCriteria:
+    elif MIT_hpf['MIT'] > lowCriteria and MIT_hpf['MIT'] <= midCriteria:
         MITscore = 2
-    elif MIT_hpf['MIT'] >= midCriteria:
+    elif MIT_hpf['MIT'] > midCriteria:
         MITscore = 3
     
     return MITscore
 
 def npScoreCalc(sideMean, sideIQR, confidence):
-    npScore = 2
     
-    if sideMean < 8.5 and sideIQR < 2.5 and confidence < 0.25:
+    # 1. Score 1 : mean size < 9.5 μm2
+    # 2. Score 2 : mean size >= 9.5 μm2 and <= 10 μm2 or (mean size <= 11 μm2 or IQR <= 4)
+    # 3. Score 3 : mean size > 11 μm2  or (mean size > 10 μm2 and IQR > 4)
+
+    if sideMean < 9.5:
         npScore = 1
-    
-    temp = 0
-    if sideMean > 9.5:
-        temp += 1
-    if sideIQR > 4:
-        temp += 1
-    if confidence > 0.4:
-        temp += 1
-    
-    if temp > 1:
+    elif (sideMean >= 9.5 and 
+          sideMean <= 10) or (sideMean <= 11 or 
+                              sideIQR <= 4):
+        npScore = 2
+    elif (sideMean > 11) or (sideMean > 10 and 
+                             sideIQR > 4):
         npScore = 3
+
+    # npScore = 2
+    
+    # if sideMean < 8.5 and sideIQR < 2.5 and confidence < 0.25:
+    #     npScore = 1
+    
+    # temp = 0
+    # if sideMean > 9.5:
+    #     temp += 1
+    # if sideIQR > 4:
+    #     temp += 1
+    # if confidence > 0.4:
+    #     temp += 1
+    
+    # if temp > 1:
+    #     npScore = 3
         
     return npScore
 
